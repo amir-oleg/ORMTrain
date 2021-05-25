@@ -46,7 +46,7 @@ namespace ORMTrain
                                     Region = t.Territory.Region.RegionDescription
                                 }).Distinct().Aggregate(new StringBuilder(),
                                 (current, next) => current.Append(current.Length == 0 ? "" : ", ").Append(next))
-                            .ToString() //немного магии
+                                .ToString()
                     };
                 foreach (var employee in employees)
                 {
@@ -89,8 +89,9 @@ namespace ORMTrain
                         FirstName = emp.FirstName,
                         LastName = emp.LastName,
                         ShipCompanies = (from ord in emp.Orders
-                            select ord.Shipper.CompanyName).Distinct().Aggregate(new StringBuilder(),
-                            (current, next) => current.Append(current.Length == 0 ? "" : ", ").Append(next)).ToString()
+                            select ord.Shipper.CompanyName).Distinct()
+                                                           .Aggregate(new StringBuilder(),(current, next) => current.Append(current.Length == 0 ? "" : ", ")
+                                                           .Append(next)).ToString()
                     };
 
                 foreach (var employee in employees)
@@ -136,7 +137,9 @@ namespace ORMTrain
         {
             using (var db = new NorthwindConnection())
             {
-                db.Products.Where(p => p.Category.Name == "Beverages").Set(p => p.CategoryID, 2).Update();
+                db.Products.Where(p => p.Category.Name == "Beverages")
+                           .Set(p => p.CategoryID, 2)
+                           .Update();
             }
         }
     }
