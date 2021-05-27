@@ -2,9 +2,12 @@
 using ORMTrain.Models;
 using System;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Runtime.InteropServices;
 using System.Text;
 using LinqToDB;
+using LinqToDB.Data;
+using LinqToDB.Linq;
 
 namespace ORMTrain
 {
@@ -140,6 +143,95 @@ namespace ORMTrain
                 db.Products.Where(p => p.Category.Name == "Beverages")
                            .Set(p => p.CategoryID, 2)
                            .Update();
+            }
+        }
+
+        [TestMethod]
+        public void AddProduct()
+        {
+            var products = new Product[]
+            {
+                new Product()
+                {
+                    Category = new Category()
+                    {
+                        Name = "Beverages"
+                    },
+                    Supplier = new Supplier()
+                    {
+                        CompanyName = "Exotic Liquids"
+                    },
+                    Name = "Juice"
+                },
+                new Product()
+                {
+                    Category = new Category()
+                    {
+                        Name = "Something new"
+                    },
+                    Supplier = new Supplier()
+                    {
+                        CompanyName = "Saratov Airlines"
+                    },
+                    Name = "Energy water"
+                }
+            };
+            using (var db = new NorthwindConnection())
+            {
+                foreach (var product in products)
+                {
+                    try
+                    {
+                        product.Category = db.Categories.Single(cat => cat.Name == product.Category.Name);
+                        product.CategoryID = product.Category.Id;
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        product.CategoryID = db.InsertWithInt32Identity(product.Category);
+                    }
+
+                    try
+                    {
+                        product.Supplier = db.Suppliers.Single(sup => sup.CompanyName == product.Supplier.CompanyName);
+                        product.SupplierID = product.Supplier.Id;
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        product.SupplierID = db.InsertWithInt32Identity(product.Supplier);
+                    }
+                }
+                db.BulkCopy(products);
+            }
+        }
+
+        [TestMethod]
+        public void ReplaceProductsInUnfulfilledOrders()
+        {
+            var productIdOld = 20;
+            var productIdNew = 85;
+            Product productNew;
+            using (var db = new NorthwindConnection())
+            {
+                try
+                {
+                    productNew = db.Products.First(product => product.Id == productIdNew);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    db.Dispose();
+                    return;
+                }
+                
+                var unfulfilledOrdersId = db.Orders.Where(order => order.ShippedDate == null)
+                                                               .Select(order => order.Id);
+                var ordersDetails = db.OrderDetails.Where(detail => unfulfilledOrdersId.Contains(detail.OrderID))
+                    .Where(detail => detail.ProductID == productIdOld);
+                productNew.UnitsOnOrder = ordersDetails.Sum(detail => detail.Quantity);
+                db.Update(productNew);
+                ordersDetails.Set(detail => detail.ProductID, productIdNew)
+                             .Set(detail => detail.UnitPrice, productNew.UnitPrice)
+                             .Update();
             }
         }
     }
